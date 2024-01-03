@@ -77,12 +77,15 @@ int main(){
 DWORD WINAPI handleConnection(LPVOID lpParameter){
     SOCKET* _clientSocket = (SOCKET*)lpParameter;
     char* buffer = (char*)malloc(DEFAULT_BUFLEN);
-    int bytesReceived = 0;
-    if((recv(_clientSocket, buffer, DEFAULT_BUFLEN, 0)<=0)){
+    int bytesReceived = recv(*_clientSocket, buffer, DEFAULT_BUFLEN, 0);
+    if(bytesReceived==0){
         closesocket(*_clientSocket);
         free(buffer);
         free(_clientSocket);
         return 1;
+    }
+    for(int i =0; i<bytesReceived; i++){
+        printf("%c", buffer[i]);
     }
 
 
