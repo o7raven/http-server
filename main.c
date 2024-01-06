@@ -6,8 +6,34 @@
 
 #define PORT "80"
 #define DEFAULT_BUFLEN 1024
+#define MAX_URL_PATH_LENGTH 20
+
+#ifdef DEBUG
+void printRequest(const char* buffer, const int bytesReceived){
+    char test[50];
+    int length = 0;
+    for(int i =0; i<bytesReceived; i++){
+        printf("%c", buffer[i]);
+    }
+
+}
+#endif
+
+typedef enum{
+    GET,
+    POST,
+    HEAD,
+    PUT,
+    CONNECT,
+    OPTIONS,
+    TRACE,
+    PATCH
+} REQUEST;
 
 DWORD WINAPI handleConnection(LPVOID lpParameter);
+static int getRequest(const char* buffer, const SSIZE_T bufferSize, REQUEST* request);
+static int handleGETRequest(const char* buffer, const SSIZE_T bytesReceived, const SOCKET* clientSocket);
+static int createHTTPResponse(const char* urlPath,char* responseBuffer, size_t* responseLen);
 
 int main(){
     WSADATA wsaData;
@@ -77,20 +103,78 @@ int main(){
 DWORD WINAPI handleConnection(LPVOID lpParameter){
     SOCKET* _clientSocket = (SOCKET*)lpParameter;
     char* buffer = (char*)malloc(DEFAULT_BUFLEN);
-    int bytesReceived = recv(*_clientSocket, buffer, DEFAULT_BUFLEN, 0);
-    if(bytesReceived==0){
+    SSIZE_T bytesReceived = recv(*_clientSocket, buffer, DEFAULT_BUFLEN, 0);
+    if(bytesReceived>0){
         closesocket(*_clientSocket);
         free(buffer);
         free(_clientSocket);
         return 1;
     }
-    for(int i =0; i<bytesReceived; i++){
-        printf("%c", buffer[i]);
+    #ifdef DEBUG
+        printRequest(buffer, bytesReceived);
+    #endif
+    REQUEST request;
+    if(getRequest(buffer, bytesReceived, &request) == 1){
+        printf("Wrong request\n");
+        closesocket(*_clientSocket);
+        free(buffer);
+        free(_clientSocket);
+        return 1;
     }
-
-
+    switch (request){
+        case GET:
+            handleGETRequest(buffer, bytesReceived, (SOCKET*)lpParameter);
+            break;
+        
+        default:
+            printf("request not supported");
+            break;
+    }
     closesocket(*_clientSocket);
     free(buffer);
     free(_clientSocket);
     return 0;
+}
+
+static int getRequest(const char* buffer, const SSIZE_T bufferSize, REQUEST* request){
+    //complicated solution due to security in buffer overflow
+    size_t buffSize = 0;
+    for(int i=0; i<bufferSize; i++){
+        if(buffer[i] == ' ')
+            break; 
+        buffSize++;
+    }
+    char* requestPtr = (char*)malloc(buffSize);
+    for(int i=0; i<buffSize; i++){
+        requestPtr[i] = buffer[i];
+    }
+    if(strstr(requestPtr, "GET")){
+        *request = GET;
+    }else if(strstr(requestPtr, "POST")){
+        *request = POST;
+    }else{
+        free(requestPtr);
+        return 1;
+    }
+    free(requestPtr);
+    return 0;
+}
+
+static int handleGETRequest(const char* buffer, const SSIZE_T bytesReceived, const SOCKET* clientSocket){
+    char* startPos = strchr(buffer, '/');
+    char* urlPath = strtok(startPos, " ");
+    #ifdef DEBUG
+        printf("%s", urlPath);
+    #endif
+    char* responseBuffer = (char*)malloc(DEFAULT_BUFLEN*2);
+    size_t responseLen;
+    createHTTPResponse(urlPath, responseBuffer, &responseLen);
+    send(*clientSocket, responseBuffer, responseLen, 0);
+    free(responseBuffer);
+    return 0;
+}
+
+
+static int createHTTPResponse(const char* urlPath,char* responseBuffer, size_t* responseLen){
+
 }
