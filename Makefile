@@ -1,3 +1,3 @@
 all:
-		gcc main.c -lws2_32 
+		gcc main.c -lws2_32 -DDEBUG
  
