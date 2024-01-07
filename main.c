@@ -99,6 +99,7 @@ static int getRequest(const char* buffer, const SSIZE_T bufferSize, REQUEST* req
 static int handleGETRequest(const char* buffer, const SSIZE_T bytesReceived, const SOCKET* clientSocket);
 static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLen);
 const static char* getMimeType(const char* extension);
+static size_t getFileSize(FILE* file);
 #ifdef DEBUG
 void printRequest(const char* buffer, const int bytesReceived){
     char test[50];
@@ -198,7 +199,10 @@ DWORD WINAPI handleConnection(LPVOID lpParameter){
     }
     switch (request){
         case GET:
-            handleGETRequest(buffer, bytesReceived, (SOCKET*)lpParameter);
+            if(handleGETRequest(buffer, bytesReceived, (SOCKET*)lpParameter)==1){
+                printf("Error handling the GET request\n");
+                return 1;
+            }
             break;
         
         default:
@@ -251,6 +255,10 @@ static int handleGETRequest(const char* buffer, const SSIZE_T bytesReceived, con
 
 
 static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLen){
+    char* requestedFilePath = (char*)malloc(strlen(URI));
+    strcpy(requestedFilePath, URI);
+    requestedFilePath+=1;
+
     char* fileExt = strrchr(URI, '.');
     char* fileName = strtok(URI, ".");
     fileExt=fileExt+1;
@@ -268,19 +276,62 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
         }
         #ifdef DEBUG
             printf("File extension: %s\n", fileExt);
-            printf("MIME type %s\n", mime);
+            printf("MIME type: %s\n", mime);
         #endif
+        char* header  = (char*)malloc(DEFAULT_BUFLEN);
+        snprintf(header, DEFAULT_BUFLEN, 
+                    "HTTP/1.1 200OK\r\n"
+                    "Content-Type: %s\r\n"
+                    "\r\n",mime);
+        #ifdef DEBUG
+            printf("Header: %s\n", header);
+            printf("Requested file path: %s\n", requestedFilePath);
+        #endif
+        FILE* requestedFile = fopen(requestedFilePath, "r");
+        if(requestedFile==NULL){
+            snprintf(responseBuffer, DEFAULT_BUFLEN, 
+                    "HTTP/1.1 404 Not Found\r\n"
+                    "Content-Type: text/plain\r\n"
+                    "\r\n"
+                    "404 Not Found");
+            *responseLen = strlen(responseBuffer);
+            free(header);
+            return 1;
+        }
+        size_t requestedFileSize = getFileSize(requestedFile);
+        #ifdef DEBUG
+            printf("File size: %d\n", requestedFileSize);
+        #endif
+        char* fileBuffer = (char*)malloc(requestedFileSize);
+        size_t bytesRead = fread(fileBuffer,sizeof(char), requestedFileSize, requestedFile);
         
-
+        memcpy(responseBuffer, header, strlen(header));
+        memcpy(responseBuffer+strlen(header), fileBuffer, strlen(fileBuffer));
+        #ifdef DEBUG
+            printf("Response buffer: %s\n", responseBuffer);
+        #endif
+        *responseLen = strlen(responseBuffer);
+        
+        free(fileBuffer);
+        free(requestedFilePath);
+        free(header);
+        fclose(requestedFile);
     }
-    
 }
-
 const static char* getMimeType(const char* extension){
     for(int i = 0; i<sizeof(mimeTypeList)/sizeof(mimeTypeList[0]);i++){
-        if(strcmp(extension, mimeTypeList[i].extension)==0){
+        if(!strcmp(extension, mimeTypeList[i].extension)){
             return mimeTypeList[i].mimeType;
         }
     }
     return NULL;
+}
+
+static size_t getFileSize(FILE* file){
+    int fileSize, currentPos;
+    currentPos=ftell(file);
+    fseek(file, 0,SEEK_END);
+    fileSize = ftell(file);
+    fseek(file,currentPos, SEEK_SET);
+    return fileSize;
 }
