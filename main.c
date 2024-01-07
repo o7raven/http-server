@@ -1,23 +1,13 @@
 #define _WIN32_WINNT 0x0501
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <stdio.h>
 #include <Windows.h>
+
+#include <stdio.h>
 
 #define PORT "80"
 #define DEFAULT_BUFLEN 1024
 #define MAX_URL_PATH_LENGTH 20
-
-#ifdef DEBUG
-void printRequest(const char* buffer, const int bytesReceived){
-    char test[50];
-    int length = 0;
-    for(int i =0; i<bytesReceived; i++){
-        printf("%c", buffer[i]);
-    }
-
-}
-#endif
 
 typedef enum{
     GET,
@@ -30,10 +20,95 @@ typedef enum{
     PATCH
 } REQUEST;
 
+typedef struct{
+    const char* extension;
+    const char* mimeType;
+} MIME; 
+static const MIME mimeTypeList[] = {
+    {"aac", "audio/aac"},
+    {"abw", "application/x-abiword"},
+    {"avi", "video/x-msvideo"},
+    {"azw", "application/vnd.amazon.ebook"},
+    {"bin", "application/octet-stream"},
+    {"bmp", "image/bmp"},
+    {"bz", "application/x-bzip"},
+    {"bz2", "application/x-bzip2"},
+    {"csh", "application/x-csh"},
+    {"css", "text/css"},
+    {"csv", "text/csv"},
+    {"doc", "application/msword"},
+    {"docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+    {"eot", "application/vnd.ms-fontobject"},
+    {"epub", "application/epub+zip"},
+    {"gif", "image/gif"},
+    {"htm", "text/html"},
+    {"html", "text/html"},
+    {"ico", "image/vnd.microsoft.icon"},
+    {"ics", "text/calendar"},
+    {"jar", "application/java-archive"},
+    {"jpeg", "image/jpeg"},
+    {"jpg", "image/jpeg"},
+    {"js", "text/javascript"},
+    {"json", "application/json"},
+    {"mid", "audio/midi"},
+    {"midi", "audio/midi"},
+    {"mpeg", "video/mpeg"},
+    {"mpkg", "application/vnd.apple.installer+xml"},
+    {"odp", "application/vnd.oasis.opendocument.presentation"},
+    {"ods", "application/vnd.oasis.opendocument.spreadsheet"},
+    {"odt", "application/vnd.oasis.opendocument.text"},
+    {"oga", "audio/ogg"},
+    {"ogv", "video/ogg"},
+    {"ogx", "application/ogg"},
+    {"otf", "font/otf"},
+    {"png", "image/png"},
+    {"pdf", "application/pdf"},
+    {"ppt", "application/vnd.ms-powerpoint"},
+    {"pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+    {"rar", "application/x-rar-compressed"},
+    {"rtf", "application/rtf"},
+    {"sh", "application/x-sh"},
+    {"svg", "image/svg+xml"},
+    {"swf", "application/x-shockwave-flash"},
+    {"tar", "application/x-tar"},
+    {"tif", "image/tiff"},
+    {"tiff", "image/tiff"},
+    {"ttf", "font/ttf"},
+    {"txt", "text/plain"},
+    {"vsd", "application/vnd.visio"},
+    {"wav", "audio/wav"},
+    {"weba", "audio/webm"},
+    {"webm", "video/webm"},
+    {"webp", "image/webp"},
+    {"woff", "font/woff"},
+    {"woff2", "font/woff2"},
+    {"xhtml", "application/xhtml+xml"},
+    {"xls", "application/vnd.ms-excel"},
+    {"xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+    {"xml", "application/xml"},
+    {"xul", "application/vnd.mozilla.xul+xml"},
+    {"zip", "application/zip"},
+    {"3gp", "video/3gpp"},
+    {"3g2", "video/3gpp2"},
+    {"7z", "application/x-7z-compressed"},
+    // Add more MIME types as needed
+};
+
 DWORD WINAPI handleConnection(LPVOID lpParameter);
 static int getRequest(const char* buffer, const SSIZE_T bufferSize, REQUEST* request);
 static int handleGETRequest(const char* buffer, const SSIZE_T bytesReceived, const SOCKET* clientSocket);
-static int createHTTPResponse(const char* urlPath,char* responseBuffer, size_t* responseLen);
+static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLen);
+const static char* getMimeType(const char* extension);
+#ifdef DEBUG
+void printRequest(const char* buffer, const int bytesReceived){
+    char test[50];
+    int length = 0;
+    for(int i =0; i<bytesReceived; i++){
+        printf("%c", buffer[i]);
+    }
+
+}
+#endif
 
 int main(){
     WSADATA wsaData;
@@ -91,7 +166,7 @@ int main(){
         LPSECURITY_ATTRIBUTES threadId;
         HANDLE hThread = CreateThread(threadId, 0, handleConnection, (void*)clientSocket,0,NULL);
         if(hThread == NULL){
-            printf("Thread creation has been unsuccessful");
+            printf("Thread creation has been unsuccessful\n");
             continue;
         }
         printf("Connection accepted\n");
@@ -104,7 +179,7 @@ DWORD WINAPI handleConnection(LPVOID lpParameter){
     SOCKET* _clientSocket = (SOCKET*)lpParameter;
     char* buffer = (char*)malloc(DEFAULT_BUFLEN);
     SSIZE_T bytesReceived = recv(*_clientSocket, buffer, DEFAULT_BUFLEN, 0);
-    if(bytesReceived>0){
+    if(bytesReceived<0){
         closesocket(*_clientSocket);
         free(buffer);
         free(_clientSocket);
@@ -127,7 +202,7 @@ DWORD WINAPI handleConnection(LPVOID lpParameter){
             break;
         
         default:
-            printf("request not supported");
+            printf("request not supported\n");
             break;
     }
     closesocket(*_clientSocket);
@@ -162,19 +237,50 @@ static int getRequest(const char* buffer, const SSIZE_T bufferSize, REQUEST* req
 
 static int handleGETRequest(const char* buffer, const SSIZE_T bytesReceived, const SOCKET* clientSocket){
     char* startPos = strchr(buffer, '/');
-    char* urlPath = strtok(startPos, " ");
+    char* URI = strtok(startPos, " ");
     #ifdef DEBUG
-        printf("%s", urlPath);
+        printf("%s\n", URI);
     #endif
     char* responseBuffer = (char*)malloc(DEFAULT_BUFLEN*2);
     size_t responseLen;
-    createHTTPResponse(urlPath, responseBuffer, &responseLen);
+    createHTTPResponse(URI, responseBuffer, &responseLen);
     send(*clientSocket, responseBuffer, responseLen, 0);
     free(responseBuffer);
     return 0;
 }
 
 
-static int createHTTPResponse(const char* urlPath,char* responseBuffer, size_t* responseLen){
+static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLen){
+    char* fileExt = strrchr(URI, '.');
+    char* fileName = strtok(URI, ".");
+    fileExt=fileExt+1;
+    if(!fileExt){
+        // Treat as a folder unless there's a custom URI
+        #ifdef DEBUG
+            printf("Not supported\n");
+        #endif
+        
+    }else{
+        const char* mime = getMimeType(fileExt);
+        if(mime==NULL){
+            printf("Unknown file extension\n");
+            return 1;
+        }
+        #ifdef DEBUG
+            printf("File extension: %s\n", fileExt);
+            printf("MIME type %s\n", mime);
+        #endif
+        
 
+    }
+    
+}
+
+const static char* getMimeType(const char* extension){
+    for(int i = 0; i<sizeof(mimeTypeList)/sizeof(mimeTypeList[0]);i++){
+        if(strcmp(extension, mimeTypeList[i].extension)==0){
+            return mimeTypeList[i].mimeType;
+        }
+    }
+    return NULL;
 }
