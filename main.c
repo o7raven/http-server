@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #define PORT "80"
-#define DEFAULT_BUFLEN 1024
+#define DEFAULT_BUFLEN 1048576
 #define MAX_URL_PATH_LENGTH 20
 
 typedef enum{
@@ -248,6 +248,9 @@ static int handleGETRequest(const char* buffer, const SSIZE_T bytesReceived, con
     char* responseBuffer = (char*)malloc(DEFAULT_BUFLEN*2);
     size_t responseLen;
     createHTTPResponse(URI, responseBuffer, &responseLen);
+    #ifdef DEBUG
+        printf("Response buffer size: %d\nResponseLen size: %d\n",sizeof(responseBuffer), responseLen);
+    #endif
     send(*clientSocket, responseBuffer, responseLen, 0);
     free(responseBuffer);
     return 0;
@@ -302,7 +305,7 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
         #ifdef DEBUG
             printf("File size: %d\n", requestedFileSize);
         #endif
-        char* fileBuffer = (char*)malloc(requestedFileSize);
+        char* fileBuffer = (char*)calloc(requestedFileSize, 1);
         size_t bytesRead = fread(fileBuffer,sizeof(char), requestedFileSize, requestedFile);
         
         memcpy(responseBuffer, header, strlen(header));
