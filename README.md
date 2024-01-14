@@ -30,7 +30,7 @@ I would never have programmed this if I had nothing to learn from. Here are link
  - [String manipulations in C](https://en.wikibooks.org/wiki/C_Programming/String_manipulation)
  - [Windows sockets](https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-start-page-2)
  - [Windows CreateThread function](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createthread?redirectedfrom=MSDN) 
-These appliations during the development really helped me a lot
+### These appliations during the development really helped me a lot
 - [ARC for receiving and creating custom requests](https://github.com/advanced-rest-client/arc-electron)
 - [Fiddler Classic for debugging server responses](https://www.telerik.com/download/fiddler)
 *I can't think of more, but there are 100% more.*
