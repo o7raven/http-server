@@ -303,7 +303,7 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
     
     struct stat fileStat;
     if(stat(requestedFilePath, &fileStat) == -1){
-        printf("Error getting %s modification informaction", requestedFilePath);
+        printf("Error getting %s modification information", requestedFilePath);
         return 1;
     } 
     time_t lastModifiedTime = fileStat.st_mtime;
@@ -334,7 +334,7 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
     }
     memcpy(responseBuffer, header, strlen(header));
     memcpy(responseBuffer+strlen(header), fileBuffer, requestedFileSize);
-    *responseLen = strlen(responseBuffer);
+    *responseLen = strlen(header)+requestedFileSize;
     
     #ifdef DEBUG
         printf("\nHeader: \n%s\n", header);
