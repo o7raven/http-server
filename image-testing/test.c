@@ -13,7 +13,7 @@ static size_t getFileSize(FILE* file){
 int main(){
     char* fileBuffer = malloc(DEFAULT_BUFLEN);
     FILE* fp = NULL;
-    fp = fopen("borec.jpg", "rb");
+    fp = fopen("./borec.jpg", "rb");
     FILE* binary= fopen("image.bin", "wb");
     size_t fsize = getFileSize(fp);
     size_t bytesRead = fread(fileBuffer, sizeof(char),fsize , fp);
