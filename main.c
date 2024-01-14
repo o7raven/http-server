@@ -206,6 +206,7 @@ DWORD WINAPI handleConnection(LPVOID lpParameter){
             break;
     }
     closesocket(*_clientSocket);
+    puts("Socket has been closed\n");
     free(buffer);
     free(_clientSocket);
     return 0;
@@ -313,7 +314,7 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
     strftime(lastModified, lastModifiedSize, "%a, %d %b %Y %H:%M:%S GMT", gmtTime);
 
     snprintf(header, DEFAULT_BUFLEN, 
-                "HTTP/1.1 200OK\r\n"
+                "HTTP/1.1 200 OK\r\n"
                 "Content-Type: %s\r\n"
                 "Server: %s\r\n"
                 "Last-Modified: %s\r\n"
