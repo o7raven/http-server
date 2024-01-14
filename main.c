@@ -3,6 +3,8 @@
 #include <ws2tcpip.h>
 #include <Windows.h>
 
+#include <sys/stat.h>
+#include <time.h>
 #include <stdio.h>
 
 #define PORT "80"
@@ -19,7 +21,6 @@ typedef enum{
     TRACE,
     PATCH
 } REQUEST;
-
 typedef struct{
     const char* extension;
     const char* mimeType;
@@ -102,6 +103,7 @@ static const char* getMimeType(const char* extension);
 static size_t getFileSize(FILE* file);
 
 
+static const char* serverName = "CWebServer";
 int main(){
     WSADATA wsaData;
     int returnVal = WSAStartup(MAKEWORD(2,2), &wsaData);
@@ -284,8 +286,9 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
         snprintf(responseBuffer, DEFAULT_BUFLEN, 
                 "HTTP/1.1 404 Not Found\r\n"
                 "Content-Type: %s\r\n"
+                "Server: %s\r\n"
                 "\r\n"
-                "404 Not Found", getMimeType("txt"));
+                "404 Not Found", getMimeType("txt"), serverName);
         *responseLen = strlen(responseBuffer);
         free(requestedFilePath-1);
         fclose(requestedFile);
@@ -297,11 +300,25 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
     #endif
     char* fileBuffer = malloc(requestedFileSize);
     char* header  = malloc(DEFAULT_BUFLEN);
+    
+    struct stat fileStat;
+    if(stat(requestedFilePath, &fileStat) == -1){
+        printf("Error getting %s modification informaction", requestedFilePath);
+        return 1;
+    } 
+    time_t lastModifiedTime = fileStat.st_mtime;
+    struct tm *gmtTime=gmtime(&lastModifiedTime);
+    size_t lastModifiedSize = 256;
+    char* lastModified = malloc(lastModifiedSize);
+    strftime(lastModified, lastModifiedSize, "%a, %d %b %Y %H:%M:%S GMT", gmtTime);
+
     snprintf(header, DEFAULT_BUFLEN, 
                 "HTTP/1.1 200OK\r\n"
                 "Content-Type: %s\r\n"
+                "Server: %s\r\n"
+                "Last-Modified: %s\r\n"
                 "Content-Length: %lu\r\n"
-                "\r\n",mime,(unsigned long)requestedFileSize);
+                "\r\n",mime,serverName,lastModified,(unsigned long)requestedFileSize);
     size_t bytesRead = fread(fileBuffer, sizeof(char), requestedFileSize, requestedFile);
     if(bytesRead != requestedFileSize){
         puts("Error reading the file\n");
@@ -311,6 +328,7 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
         free(fileBuffer);
         free(requestedFilePath-1);
         free(header);
+        free(lastModified);
         fclose(requestedFile);
         return 1;
     }
@@ -327,6 +345,7 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
     free(fileBuffer);
     free(requestedFilePath-1);
     free(header);
+    free(lastModified);
     fclose(requestedFile);
     return 0; 
 }
