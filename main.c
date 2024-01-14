@@ -243,7 +243,7 @@ static int handleGETRequest(const char* buffer, const SOCKET* clientSocket){
     char* responseBuffer = malloc(DEFAULT_BUFLEN*2);
     size_t responseLen=0;
     if(createHTTPResponse(URI, responseBuffer, &responseLen)==1){
-        puts("404 Not Found\n");
+        puts("HTTP Response error\n");
     }
     #ifdef DEBUG
         printf("Response size: %d\n",responseLen);
@@ -262,7 +262,6 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
     char* requestedFilePath = malloc(strlen(URI));
     strcpy(requestedFilePath, URI);
     requestedFilePath+=1;
-
     char* fileExt = strrchr(URI, '.');
     fileExt=fileExt+1;
     if(!fileExt){
@@ -274,12 +273,12 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
     const char* mime = getMimeType(fileExt);
     if(mime==NULL){
         puts("Unknown file extension\n");
-        return 1;
     }
     #ifdef DEBUG
         printf("File extension: %s\n", fileExt);
         printf("MIME type: %s\n", mime);
     #endif
+
     FILE* requestedFile = fopen(requestedFilePath, "rb");
     if(requestedFile==NULL){
         snprintf(responseBuffer, DEFAULT_BUFLEN, 
@@ -305,7 +304,10 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
                 "\r\n",mime,(unsigned long)requestedFileSize);
     size_t bytesRead = fread(fileBuffer, sizeof(char), requestedFileSize, requestedFile);
     if(bytesRead != requestedFileSize){
-        puts("Error reading the file");
+        puts("Error reading the file\n");
+        #ifdef DEBUG
+            printf("Bytes read: %d\nFile size: %d\n", bytesRead, requestedFileSize);
+        #endif
         free(fileBuffer);
         free(requestedFilePath-1);
         free(header);
