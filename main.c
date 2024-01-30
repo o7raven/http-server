@@ -92,7 +92,6 @@ static const MIME mimeTypeList[] = {
     {"3gp", "video/3gpp"},
     {"3g2", "video/3gpp2"},
     {"7z", "application/x-7z-compressed"},
-    // Add more MIME types as needed
 };
 
 DWORD WINAPI handleConnection(LPVOID lpParameter);
@@ -102,16 +101,15 @@ static int createHTTPResponse(char* URI,char* responseBuffer, size_t* responseLe
 static const char* getMimeType(const char* extension);
 static size_t getFileSize(FILE* file);
 
-
 static const char* serverName = "CWebServer";
 int main(){
     WSADATA wsaData;
     int returnVal = WSAStartup(MAKEWORD(2,2), &wsaData);
     if(returnVal!=0){
         printf("WSAStartup failed: %d\n", returnVal);
+        return 1;
     }
-    struct addrinfo *result = NULL, hints; 
-    ZeroMemory(&hints, sizeof(hints));
+    struct addrinfo *result = NULL, hints={0}; 
     hints.ai_family=AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = INADDR_ANY;
@@ -131,7 +129,7 @@ int main(){
         WSACleanup();
         return 1;
     }
-    printf("Socket created successfully!\n");
+    puts("Socket created successfully!\n");
 
     returnVal = bind(ListenSocket,result->ai_addr, (int)result->ai_addrlen);
     if(returnVal!=0){
@@ -141,7 +139,7 @@ int main(){
         return 1;
     }
     freeaddrinfo(result);
-    printf("Socket binded successfully!\n");
+    puts("Socket binded successfully!\n");
 
     if(listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR){
         printf("Listen failed with error: %d\n", WSAGetLastError());
@@ -149,9 +147,9 @@ int main(){
         WSACleanup();
         return 1;
     }
-    printf("Listening on port %s...\n", PORT);
+    printf("\nListening on port %s...\n\n", PORT);
     for(;;){
-        SOCKET* clientSocket = (SOCKET*)malloc(sizeof(SOCKET)); 
+        SOCKET* clientSocket = malloc(sizeof(SOCKET)); 
         *clientSocket = accept(ListenSocket, NULL, NULL);
         if(*clientSocket == INVALID_SOCKET){
             printf("Accept failed: %d\n", WSAGetLastError());
@@ -176,6 +174,7 @@ DWORD WINAPI handleConnection(LPVOID lpParameter){
         closesocket(*_clientSocket);
         free(buffer);
         free(_clientSocket);
+
         return 1;
     }
     #ifdef DEBUG
