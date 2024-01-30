@@ -1,3 +1,4 @@
+(Due to the workload I am forced to put this project on hold for a while, but I will definitely come back to it and make it usable)
 # HTTP Server in C
 
 Simple HTTP Server coded in C using winsocks. So far only usable for absolute basic needs. No support for UNIX compiling yet.
